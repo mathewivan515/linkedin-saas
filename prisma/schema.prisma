@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  workspaces    WorkspaceMember[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members          WorkspaceMember[]
+  linkedinAccounts LinkedInAccount[]
+  posts            Post[]
+  campaigns        AdCampaign[]
+  analyticsHistory AnalyticsSnapshot[]
+  contentTemplates ContentTemplate[]
+}
+
+model WorkspaceMember {
+  id          String @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        String @default("owner")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+}
+
+model LinkedInAccount {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  type            String   // "personal" | "company"
+  linkedinId      String
+  name            String
+  profileUrl      String?
+  avatarUrl       String?
+  accessToken     String   @db.Text
+  refreshToken    String?  @db.Text
+  tokenExpiresAt  DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  posts     Post[]
+
+  @@unique([workspaceId, linkedinId])
+}
+
+model Post {
+  id                String    @id @default(cuid())
+  workspaceId       String
+  linkedinAccountId String?
+  title             String?
+  content           String    @db.Text
+  contentType       String    @default("short_post")
+  tone              String    @default("professional")
+  hashtags          String[]
+  keywords          String[]
+  ctaSuggestion     String?
+  carouselOutline   Json?
+  mediaUrls         String[]
+  status            String    @default("draft") // draft, scheduled, posted, failed
+  scheduledAt       DateTime?
+  publishedAt       DateTime?
+  recurringSchedule Json?
+  linkedinPostId    String?
+  failReason        String?
+  retryCount        Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  linkedinAccount LinkedInAccount? @relation(fields: [linkedinAccountId], references: [id])
+  analytics       PostAnalytics?
+}
+
+model PostAnalytics {
+  id          String @id @default(cuid())
+  postId      String @unique
+  impressions Int    @default(0)
+  clicks      Int    @default(0)
+  reactions   Int    @default(0)
+  comments    Int    @default(0)
+  shares      Int    @default(0)
+  reach       Int    @default(0)
+  engagement  Float  @default(0)
+  fetchedAt   DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model AnalyticsSnapshot {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  date          DateTime
+  followers     Int      @default(0)
+  followersGain Int      @default(0)
+  impressions   Int      @default(0)
+  reach         Int      @default(0)
+  clicks        Int      @default(0)
+  engagement    Float    @default(0)
+  reactions     Int      @default(0)
+  comments      Int      @default(0)
+  shares        Int      @default(0)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, date])
+}
+
+model AdCampaign {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  name            String
+  status          String    @default("draft")
+  objective       String?
+  budget          Float     @default(0)
+  dailyBudget     Float     @default(0)
+  startDate       DateTime?
+  endDate         DateTime?
+  targetGeography String[]
+  targetIndustry  String[]
+  targetJobTitle  String[]
+  targetCompanySize String[]
+  spend           Float     @default(0)
+  impressions     Int       @default(0)
+  clicks          Int       @default(0)
+  ctr             Float     @default(0)
+  cpc             Float     @default(0)
+  cpm             Float     @default(0)
+  conversions     Int       @default(0)
+  leads           Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model ContentTemplate {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  category    String
+  content     String   @db.Text
+  hashtags    String[]
+  tone        String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
