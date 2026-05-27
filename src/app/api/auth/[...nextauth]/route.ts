@@ -9,13 +9,46 @@ export const authOptions: NextAuthOptions = {
       type: "oauth",
       clientId: process.env.LINKEDIN_CLIENT_ID!,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET!,
-      wellKnown: "https://www.linkedin.com/oauth/.well-known/openid-configuration",
+      checks: ["none"],
       authorization: {
+        url: "https://www.linkedin.com/oauth/v2/authorization",
         params: {
           scope: "openid profile email w_member_social",
+          response_type: "code",
         },
       },
-      idToken: true,
+      token: {
+        async request({ params }) {
+          const res = await fetch(
+            "https://www.linkedin.com/oauth/v2/accessToken",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: new URLSearchParams({
+                grant_type: "authorization_code",
+                code: params.code as string,
+                client_id: process.env.LINKEDIN_CLIENT_ID!,
+                client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
+                redirect_uri: `${process.env.NEXTAUTH_URL}/api/auth/callback/linkedin`,
+              }),
+            }
+          );
+          const tokens = await res.json();
+          return { tokens };
+        },
+      },
+      userinfo: {
+        async request({ tokens }) {
+          const res = await fetch("https://api.linkedin.com/v2/userinfo", {
+            headers: {
+              Authorization: `Bearer ${tokens.access_token}`,
+            },
+          });
+          return await res.json();
+        },
+      },
       profile(profile) {
         return {
           id: profile.sub,
@@ -26,6 +59,9 @@ export const authOptions: NextAuthOptions = {
       },
     },
   ],
+  session: {
+    strategy: "jwt",
+  },
   callbacks: {
     async jwt({ token, account }) {
       if (account) {
@@ -41,11 +77,17 @@ export const authOptions: NextAuthOptions = {
       s.linkedinId = token.linkedinId;
       return session;
     },
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      if (new URL(url).origin === baseUrl) return url;
+      return `${baseUrl}/dashboard`;
+    },
   },
   pages: {
     signIn: "/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: true,
 };
 
 const handler = NextAuth(authOptions);
