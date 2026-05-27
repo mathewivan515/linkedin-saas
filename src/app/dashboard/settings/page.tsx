@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession, signIn, signOut } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,10 +11,13 @@ import {
   User,
   Link2,
   AlertTriangle,
+  CheckCircle2,
   Key,
+  LogOut,
 } from "lucide-react";
 
 export default function SettingsPage() {
+  const { data: session } = useSession();
   const [workspaceName, setWorkspaceName] = useState("My Workspace");
 
   return (
@@ -44,27 +48,72 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Link2 className="h-5 w-5 text-blue-600" /> LinkedIn Connections
+            <Link2 className="h-5 w-5 text-blue-600" /> LinkedIn Connection
           </CardTitle>
-          <CardDescription>Connect your LinkedIn profile and company pages</CardDescription>
+          <CardDescription>Connect your LinkedIn account to post and track analytics</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-                  <User className="h-5 w-5 text-blue-600" />
+          {session ? (
+            <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {session.user?.image ? (
+                    <img src={session.user.image} alt="" className="h-10 w-10 rounded-full" />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+                      <User className="h-5 w-5 text-green-600" />
+                    </div>
+                  )}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900">{session.user?.name}</p>
+                      <Badge variant="success">Connected</Badge>
+                    </div>
+                    <p className="text-xs text-gray-500">{session.user?.email}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Personal Profile</p>
-                  <p className="text-xs text-gray-500">Connect your LinkedIn personal profile</p>
+                <Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: "/login" })}>
+                  <LogOut className="h-4 w-4" /> Disconnect
+                </Button>
+              </div>
+              <div className="mt-3 flex items-center gap-2 text-green-700">
+                <CheckCircle2 className="h-4 w-4" />
+                <p className="text-sm font-medium">Your LinkedIn account is connected and ready to post</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+                      <User className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Personal Profile</p>
+                      <p className="text-xs text-gray-500">Connect your LinkedIn personal profile</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="primary"
+                    onClick={() => signIn("linkedin", { callbackUrl: "/dashboard/settings" })}
+                  >
+                    <Link2 className="h-4 w-4" /> Connect LinkedIn
+                  </Button>
                 </div>
               </div>
-              <Button variant="outline">
-                <Link2 className="h-4 w-4" /> Connect
-              </Button>
-            </div>
-          </div>
+
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+                <div className="flex items-center gap-2 text-yellow-800">
+                  <AlertTriangle className="h-4 w-4" />
+                  <p className="text-sm font-medium">No LinkedIn account connected</p>
+                </div>
+                <p className="mt-1 text-xs text-yellow-700">
+                  Connect your LinkedIn account to start creating and publishing content.
+                </p>
+              </div>
+            </>
+          )}
 
           <div className="rounded-lg border border-gray-200 p-4">
             <div className="flex items-center justify-between">
@@ -74,23 +123,11 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">Company Page</p>
-                  <p className="text-xs text-gray-500">Connect a LinkedIn company page you manage</p>
+                  <p className="text-xs text-gray-500">Company page posting requires Marketing Developer Platform approval</p>
                 </div>
               </div>
-              <Button variant="outline">
-                <Link2 className="h-4 w-4" /> Connect
-              </Button>
+              <Badge variant="warning">Coming Soon</Badge>
             </div>
-          </div>
-
-          <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-            <div className="flex items-center gap-2 text-yellow-800">
-              <AlertTriangle className="h-4 w-4" />
-              <p className="text-sm font-medium">No LinkedIn accounts connected</p>
-            </div>
-            <p className="mt-1 text-xs text-yellow-700">
-              Connect your LinkedIn account to start creating and publishing content. You&apos;ll need to authorize via LinkedIn OAuth.
-            </p>
           </div>
         </CardContent>
       </Card>
@@ -127,9 +164,8 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
             <div>
               <p className="text-sm font-medium text-gray-900">Email</p>
-              <p className="text-xs text-gray-500">user@example.com</p>
+              <p className="text-xs text-gray-500">{session?.user?.email || "Not connected"}</p>
             </div>
-            <Button variant="outline" size="sm">Change</Button>
           </div>
         </CardContent>
       </Card>

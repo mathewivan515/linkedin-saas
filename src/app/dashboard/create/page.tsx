@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,9 @@ import {
   Lightbulb,
   Copy,
   X,
+  CheckCircle2,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 
 const contentTypes = [
@@ -62,6 +66,7 @@ const sampleHashtags = ["#RemoteWork", "#FutureOfWork", "#Leadership", "#Distrib
 const sampleKeywords = ["remote work", "distributed teams", "async communication", "leadership"];
 
 export default function CreateContentPage() {
+  const { data: session } = useSession();
   const [contentType, setContentType] = useState("thought_leadership");
   const [tone, setTone] = useState("professional");
   const [topic, setTopic] = useState("");
@@ -73,6 +78,9 @@ export default function CreateContentPage() {
   const [generatedHashtags, setGeneratedHashtags] = useState<string[]>([]);
   const [generatedKeywords, setGeneratedKeywords] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishStatus, setPublishStatus] = useState<"idle" | "success" | "error">("idle");
+  const [publishMessage, setPublishMessage] = useState("");
   const [ctaSuggestion, setCtaSuggestion] = useState("");
   const [imageSuggestion, setImageSuggestion] = useState("");
 
@@ -250,6 +258,19 @@ export default function CreateContentPage() {
             </Card>
           )}
 
+          {publishStatus === "success" && (
+            <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              <p className="text-sm font-medium text-green-800">{publishMessage}</p>
+            </div>
+          )}
+          {publishStatus === "error" && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <p className="text-sm font-medium text-red-800">{publishMessage}</p>
+            </div>
+          )}
+
           {generatedContent && (
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1">
@@ -261,8 +282,45 @@ export default function CreateContentPage() {
               <Button variant="outline" className="flex-1">
                 <ImageIcon className="h-4 w-4" /> Generate Media
               </Button>
-              <Button className="flex-1">
-                <Send className="h-4 w-4" /> Publish Now
+              <Button
+                className="flex-1"
+                disabled={isPublishing || !session}
+                onClick={async () => {
+                  if (!session) {
+                    setPublishStatus("error");
+                    setPublishMessage("Please connect your LinkedIn account in Settings first.");
+                    return;
+                  }
+                  setIsPublishing(true);
+                  setPublishStatus("idle");
+                  try {
+                    const fullContent = generatedContent + (generatedHashtags.length > 0 ? "\n\n" + generatedHashtags.join(" ") : "");
+                    const res = await fetch("/api/linkedin/post", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ content: fullContent }),
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                      setPublishStatus("success");
+                      setPublishMessage("Successfully posted to LinkedIn!");
+                    } else {
+                      setPublishStatus("error");
+                      setPublishMessage(data.error || "Failed to post to LinkedIn");
+                    }
+                  } catch {
+                    setPublishStatus("error");
+                    setPublishMessage("Network error. Please try again.");
+                  } finally {
+                    setIsPublishing(false);
+                  }
+                }}
+              >
+                {isPublishing ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Publishing...</>
+                ) : (
+                  <><Send className="h-4 w-4" /> Publish Now</>
+                )}
               </Button>
             </div>
           )}

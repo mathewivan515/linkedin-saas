@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  LogOut,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -30,6 +32,7 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -78,12 +81,29 @@ export function Sidebar() {
 
       <div className="border-t border-gray-200 p-3">
         <div className={cn("flex items-center gap-3 rounded-lg px-3 py-2", collapsed && "justify-center")}>
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600" />
+          {session?.user?.image ? (
+            <img src={session.user.image} alt="" className="h-8 w-8 rounded-full" />
+          ) : (
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600" />
+          )}
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-gray-900">User</p>
-              <p className="truncate text-xs text-gray-500">Free Plan</p>
+              <p className="truncate text-sm font-medium text-gray-900">
+                {session?.user?.name || "Not signed in"}
+              </p>
+              <p className="truncate text-xs text-gray-500">
+                {session ? "Connected" : "Free Plan"}
+              </p>
             </div>
+          )}
+          {!collapsed && session && (
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           )}
         </div>
       </div>
